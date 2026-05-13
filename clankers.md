@@ -35,6 +35,7 @@ Automated tracking of all Clankers PR contributors.
 | SebnemC | 2 | 2026-05-13 |
 | Saumya-Verma123 | 2 | 2026-05-13 |
 | FJ-CX | 2 | 2026-05-13 |
+| callmekidz | 2 | 2026-05-13 |
 | woairenzhi | 1 | 2026-05-13 |
 | wislonl | 1 | 2026-05-13 |
 | subhajitlucky | 1 | 2026-05-13 |
@@ -62,4 +63,3 @@ Automated tracking of all Clankers PR contributors.
 | limu6519 | 1 | 2026-05-13 |
 | realkoreanbeef | 1 | 2026-05-13 |
 | ErenCankutUYSAL | 1 | 2026-05-13 |
-| callmekidz | 1 | 2026-05-13 |
