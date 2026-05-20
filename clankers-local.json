@@ -744,6 +744,12 @@
     "last_pr": "2026-05-20T06:10:51.726Z"
   },
   {
+    "username": "acdunbrack",
+    "total_prs": 2,
+    "first_pr": "2026-05-20T06:42:52.143Z",
+    "last_pr": "2026-05-20T06:43:01.781Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -1066,11 +1072,5 @@
     "total_prs": 1,
     "first_pr": "2026-05-20T05:54:35.230Z",
     "last_pr": "2026-05-20T05:54:35.230Z"
-  },
-  {
-    "username": "acdunbrack",
-    "total_prs": 1,
-    "first_pr": "2026-05-20T06:42:52.143Z",
-    "last_pr": "2026-05-20T06:42:52.143Z"
   }
 ]
