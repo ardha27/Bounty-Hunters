@@ -1038,6 +1038,12 @@
     "last_pr": "2026-05-26T03:07:48.298Z"
   },
   {
+    "username": "charlie12520",
+    "total_prs": 2,
+    "first_pr": "2026-05-27T01:01:34.935Z",
+    "last_pr": "2026-05-27T01:09:01.177Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -1450,11 +1456,5 @@
     "total_prs": 1,
     "first_pr": "2026-05-26T10:06:55.143Z",
     "last_pr": "2026-05-26T10:06:55.143Z"
-  },
-  {
-    "username": "charlie12520",
-    "total_prs": 1,
-    "first_pr": "2026-05-27T01:01:34.935Z",
-    "last_pr": "2026-05-27T01:01:34.935Z"
   }
 ]
