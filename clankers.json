@@ -90,6 +90,12 @@
     "last_pr": "2026-05-27T15:31:36.572Z"
   },
   {
+    "username": "genesisrevelationinc-debug",
+    "total_prs": 42,
+    "first_pr": "2026-05-22T14:02:27.948Z",
+    "last_pr": "2026-05-27T19:57:53.048Z"
+  },
+  {
     "username": "zp6",
     "total_prs": 41,
     "first_pr": "2026-05-14T18:28:53.934Z",
@@ -112,12 +118,6 @@
     "total_prs": 37,
     "first_pr": "2026-05-14T05:09:29Z",
     "last_pr": "2026-05-15T00:54:32.550Z"
-  },
-  {
-    "username": "genesisrevelationinc-debug",
-    "total_prs": 37,
-    "first_pr": "2026-05-22T14:02:27.948Z",
-    "last_pr": "2026-05-27T17:21:11.893Z"
   },
   {
     "username": "cerredz",
@@ -1056,6 +1056,18 @@
     "last_pr": "2026-05-27T16:38:15.571Z"
   },
   {
+    "username": "maiarowsky",
+    "total_prs": 3,
+    "first_pr": "2026-05-27T19:02:52.729Z",
+    "last_pr": "2026-05-27T19:22:39.380Z"
+  },
+  {
+    "username": "ColinChai-hub",
+    "total_prs": 3,
+    "first_pr": "2026-05-27T12:51:30.137Z",
+    "last_pr": "2026-05-27T19:29:40.451Z"
+  },
+  {
     "username": "huthoinguyn",
     "total_prs": 3,
     "first_pr": "2026-05-13T08:10:47Z",
@@ -1216,12 +1228,6 @@
     "total_prs": 2,
     "first_pr": "2026-05-27T13:58:48.925Z",
     "last_pr": "2026-05-27T14:25:46.136Z"
-  },
-  {
-    "username": "ColinChai-hub",
-    "total_prs": 2,
-    "first_pr": "2026-05-27T12:51:30.137Z",
-    "last_pr": "2026-05-27T15:19:04.194Z"
   },
   {
     "username": "MrDwarf7",
@@ -1672,6 +1678,12 @@
     "total_prs": 1,
     "first_pr": "2026-05-27T07:59:58.643Z",
     "last_pr": "2026-05-27T07:59:58.643Z"
+  },
+  {
+    "username": "floraiNx",
+    "total_prs": 1,
+    "first_pr": "2026-05-27T19:28:44.445Z",
+    "last_pr": "2026-05-27T19:28:44.445Z"
   },
   {
     "username": "MichisGitIsKing",
