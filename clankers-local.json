@@ -1086,6 +1086,12 @@
     "last_pr": "2026-05-27T17:03:55.783Z"
   },
   {
+    "username": "floraiNx",
+    "total_prs": 2,
+    "first_pr": "2026-05-27T19:28:44.445Z",
+    "last_pr": "2026-05-27T20:44:41.974Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -1510,11 +1516,5 @@
     "total_prs": 1,
     "first_pr": "2026-05-27T17:38:55.381Z",
     "last_pr": "2026-05-27T17:38:55.381Z"
-  },
-  {
-    "username": "floraiNx",
-    "total_prs": 1,
-    "first_pr": "2026-05-27T19:28:44.445Z",
-    "last_pr": "2026-05-27T19:28:44.445Z"
   }
 ]
