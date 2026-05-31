@@ -36,6 +36,12 @@
     "last_pr": "2026-05-26T21:20:09.479Z"
   },
   {
+    "username": "xyjk0511",
+    "total_prs": 77,
+    "first_pr": "2026-05-31T02:46:41.378Z",
+    "last_pr": "2026-05-31T11:27:23.171Z"
+  },
+  {
     "username": "mkcash",
     "total_prs": 75,
     "first_pr": "2026-05-16T16:30:52.575Z",
@@ -58,12 +64,6 @@
     "total_prs": 71,
     "first_pr": "2026-05-22T14:02:27.948Z",
     "last_pr": "2026-05-29T15:37:50.618Z"
-  },
-  {
-    "username": "xyjk0511",
-    "total_prs": 70,
-    "first_pr": "2026-05-31T02:46:41.378Z",
-    "last_pr": "2026-05-31T05:50:17.405Z"
   },
   {
     "username": "BossChaos",
@@ -654,6 +654,12 @@
     "last_pr": "2026-05-23T19:31:47.376Z"
   },
   {
+    "username": "rogierx",
+    "total_prs": 8,
+    "first_pr": "2026-05-31T08:58:21.838Z",
+    "last_pr": "2026-05-31T10:33:06.728Z"
+  },
+  {
     "username": "duongynhi000005-oss",
     "total_prs": 8,
     "first_pr": "2026-05-28T07:19:05.261Z",
@@ -756,6 +762,12 @@
     "last_pr": "2026-05-19T05:23:32.492Z"
   },
   {
+    "username": "kejuunuy",
+    "total_prs": 7,
+    "first_pr": "2026-05-29T06:56:07.545Z",
+    "last_pr": "2026-05-31T10:52:37.299Z"
+  },
+  {
     "username": "qiqi1616",
     "total_prs": 7,
     "first_pr": "2026-05-17T14:55:39.818Z",
@@ -820,12 +832,6 @@
     "total_prs": 6,
     "first_pr": "2026-05-19T14:40:24.996Z",
     "last_pr": "2026-05-20T00:01:29.229Z"
-  },
-  {
-    "username": "kejuunuy",
-    "total_prs": 6,
-    "first_pr": "2026-05-29T06:56:07.545Z",
-    "last_pr": "2026-05-30T14:41:11.067Z"
   },
   {
     "username": "FJ-CX",
@@ -940,12 +946,6 @@
     "total_prs": 5,
     "first_pr": "2026-05-26T10:06:55.143Z",
     "last_pr": "2026-05-27T10:42:53.642Z"
-  },
-  {
-    "username": "rogierx",
-    "total_prs": 5,
-    "first_pr": "2026-05-31T08:58:21.838Z",
-    "last_pr": "2026-05-31T09:36:48.673Z"
   },
   {
     "username": "Alex-2Code",
@@ -2056,5 +2056,11 @@
     "total_prs": 1,
     "first_pr": "2026-05-28T15:39:10.599Z",
     "last_pr": "2026-05-28T15:39:10.599Z"
+  },
+  {
+    "username": "poppletoncrespino-jpg",
+    "total_prs": 1,
+    "first_pr": "2026-05-31T11:26:16.413Z",
+    "last_pr": "2026-05-31T11:26:16.413Z"
   }
 ]
