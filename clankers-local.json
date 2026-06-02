@@ -786,6 +786,12 @@
     "last_pr": "2026-06-02T07:33:16.776Z"
   },
   {
+    "username": "fennhelloworld",
+    "total_prs": 5,
+    "first_pr": "2026-06-02T16:41:54.428Z",
+    "last_pr": "2026-06-02T20:30:12.450Z"
+  },
+  {
     "username": "spqrcode",
     "total_prs": 4,
     "first_pr": "2026-05-14T12:12:04.319Z",
@@ -874,12 +880,6 @@
     "total_prs": 4,
     "first_pr": "2026-05-30T20:06:46.973Z",
     "last_pr": "2026-05-31T14:10:29.605Z"
-  },
-  {
-    "username": "fennhelloworld",
-    "total_prs": 4,
-    "first_pr": "2026-06-02T16:41:54.428Z",
-    "last_pr": "2026-06-02T20:27:54.039Z"
   },
   {
     "username": "AidenPeerce",
