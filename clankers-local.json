@@ -1278,6 +1278,12 @@
     "last_pr": "2026-06-02T15:12:30.435Z"
   },
   {
+    "username": "JUk1-GH",
+    "total_prs": 2,
+    "first_pr": "2026-06-06T14:21:46.038Z",
+    "last_pr": "2026-06-06T14:29:46.186Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -1840,11 +1846,5 @@
     "total_prs": 1,
     "first_pr": "2026-06-05T18:44:04.879Z",
     "last_pr": "2026-06-05T18:44:04.879Z"
-  },
-  {
-    "username": "JUk1-GH",
-    "total_prs": 1,
-    "first_pr": "2026-06-06T14:21:46.038Z",
-    "last_pr": "2026-06-06T14:21:46.038Z"
   }
 ]
