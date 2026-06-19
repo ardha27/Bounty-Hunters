@@ -1488,6 +1488,12 @@
     "last_pr": "2026-06-18T20:04:11.650Z"
   },
   {
+    "username": "mannowell",
+    "total_prs": 2,
+    "first_pr": "2026-06-19T02:18:14.467Z",
+    "last_pr": "2026-06-19T02:30:52.956Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -2104,11 +2110,5 @@
     "total_prs": 1,
     "first_pr": "2026-06-18T04:49:32.171Z",
     "last_pr": "2026-06-18T04:49:32.171Z"
-  },
-  {
-    "username": "mannowell",
-    "total_prs": 1,
-    "first_pr": "2026-06-19T02:18:14.467Z",
-    "last_pr": "2026-06-19T02:18:14.467Z"
   }
 ]
