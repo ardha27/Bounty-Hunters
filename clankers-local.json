@@ -504,6 +504,12 @@
     "last_pr": "2026-06-22T09:15:25.476Z"
   },
   {
+    "username": "gtx20060124-bot",
+    "total_prs": 11,
+    "first_pr": "2026-06-22T05:22:48.826Z",
+    "last_pr": "2026-06-22T12:04:33.860Z"
+  },
+  {
     "username": "CHIFFONPIZZA",
     "total_prs": 10,
     "first_pr": "2026-05-14T05:21:59Z",
@@ -538,12 +544,6 @@
     "total_prs": 10,
     "first_pr": "2026-06-13T00:25:33.621Z",
     "last_pr": "2026-06-13T04:36:27.396Z"
-  },
-  {
-    "username": "gtx20060124-bot",
-    "total_prs": 10,
-    "first_pr": "2026-06-22T05:22:48.826Z",
-    "last_pr": "2026-06-22T11:56:52.569Z"
   },
   {
     "username": "digzrow-coder",
