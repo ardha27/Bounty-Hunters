@@ -73,9 +73,9 @@
   },
   {
     "username": "genesisrevelationinc-debug",
-    "total_prs": 88,
+    "total_prs": 91,
     "first_pr": "2026-05-22T14:02:27.948Z",
-    "last_pr": "2026-06-13T06:14:07.163Z"
+    "last_pr": "2026-06-25T06:29:58.906Z"
   },
   {
     "username": "bryantrinh",
@@ -294,6 +294,12 @@
     "last_pr": "2026-06-02T03:18:25.298Z"
   },
   {
+    "username": "Shaidyk",
+    "total_prs": 24,
+    "first_pr": "2026-06-18T16:31:08.499Z",
+    "last_pr": "2026-06-25T05:58:43.001Z"
+  },
+  {
     "username": "Xiaoqiang-Huang",
     "total_prs": 23,
     "first_pr": "2026-05-15T17:11:10.002Z",
@@ -316,12 +322,6 @@
     "total_prs": 22,
     "first_pr": "2026-06-11T21:03:38.158Z",
     "last_pr": "2026-06-12T11:52:38.580Z"
-  },
-  {
-    "username": "Shaidyk",
-    "total_prs": 22,
-    "first_pr": "2026-06-18T16:31:08.499Z",
-    "last_pr": "2026-06-25T04:28:26.669Z"
   },
   {
     "username": "barnacleagent-svg",
