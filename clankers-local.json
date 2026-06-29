@@ -1632,6 +1632,12 @@
     "last_pr": "2026-06-29T06:32:06.955Z"
   },
   {
+    "username": "guo-gy",
+    "total_prs": 2,
+    "first_pr": "2026-06-29T09:20:47.924Z",
+    "last_pr": "2026-06-29T09:28:28.615Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -2272,11 +2278,5 @@
     "total_prs": 1,
     "first_pr": "2026-06-29T01:22:03.204Z",
     "last_pr": "2026-06-29T01:22:03.204Z"
-  },
-  {
-    "username": "guo-gy",
-    "total_prs": 1,
-    "first_pr": "2026-06-29T09:20:47.924Z",
-    "last_pr": "2026-06-29T09:20:47.924Z"
   }
 ]
