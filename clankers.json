@@ -126,6 +126,12 @@
     "last_pr": "2026-05-16T12:19:59.938Z"
   },
   {
+    "username": "lb1192176991-lab",
+    "total_prs": 57,
+    "first_pr": "2026-06-12T18:45:04.352Z",
+    "last_pr": "2026-07-03T18:38:26.162Z"
+  },
+  {
     "username": "arthurus36-alt",
     "total_prs": 56,
     "first_pr": "2026-05-18T13:52:17.760Z",
@@ -142,12 +148,6 @@
     "total_prs": 54,
     "first_pr": "2026-05-18T19:17:26.067Z",
     "last_pr": "2026-05-19T00:58:17.880Z"
-  },
-  {
-    "username": "lb1192176991-lab",
-    "total_prs": 54,
-    "first_pr": "2026-06-12T18:45:04.352Z",
-    "last_pr": "2026-06-26T17:29:40.177Z"
   },
   {
     "username": "zhangjiayang6835-cyber",
@@ -726,6 +726,12 @@
     "last_pr": "2026-07-01T23:57:19.564Z"
   },
   {
+    "username": "wisdom518",
+    "total_prs": 10,
+    "first_pr": "2026-06-28T22:29:32.501Z",
+    "last_pr": "2026-07-03T18:46:17.812Z"
+  },
+  {
     "username": "gacorpoll-ui",
     "total_prs": 10,
     "first_pr": "2026-05-19T03:34:40.600Z",
@@ -766,12 +772,6 @@
     "total_prs": 9,
     "first_pr": "2026-05-21T02:53:24.037Z",
     "last_pr": "2026-05-21T03:30:06.032Z"
-  },
-  {
-    "username": "wisdom518",
-    "total_prs": 9,
-    "first_pr": "2026-06-28T22:29:32.501Z",
-    "last_pr": "2026-06-30T22:50:50.661Z"
   },
   {
     "username": "maojianian25-png",
