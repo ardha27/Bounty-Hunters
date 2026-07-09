@@ -1686,6 +1686,12 @@
     "last_pr": "2026-06-30T04:31:50.306Z"
   },
   {
+    "username": "Th3Slack3r",
+    "total_prs": 2,
+    "first_pr": "2026-07-08T23:17:20.826Z",
+    "last_pr": "2026-07-09T02:45:20.520Z"
+  },
+  {
     "username": "ErenCankutUYSAL",
     "total_prs": 1,
     "first_pr": "2026-05-13T19:25:27Z",
@@ -2356,11 +2362,5 @@
     "total_prs": 1,
     "first_pr": "2026-07-08T08:23:20.932Z",
     "last_pr": "2026-07-08T08:23:20.932Z"
-  },
-  {
-    "username": "Th3Slack3r",
-    "total_prs": 1,
-    "first_pr": "2026-07-08T23:17:20.826Z",
-    "last_pr": "2026-07-08T23:17:20.826Z"
   }
 ]
