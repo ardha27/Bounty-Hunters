@@ -330,6 +330,12 @@
     "last_pr": "2026-05-15T19:28:07.399Z"
   },
   {
+    "username": "hanu-14",
+    "total_prs": 23,
+    "first_pr": "2026-07-03T19:23:53.560Z",
+    "last_pr": "2026-07-10T16:49:05.612Z"
+  },
+  {
     "username": "iice257",
     "total_prs": 22,
     "first_pr": "2026-05-13T06:46:40Z",
@@ -442,12 +448,6 @@
     "total_prs": 17,
     "first_pr": "2026-05-25T06:26:55.284Z",
     "last_pr": "2026-05-25T12:24:52.811Z"
-  },
-  {
-    "username": "hanu-14",
-    "total_prs": 17,
-    "first_pr": "2026-07-03T19:23:53.560Z",
-    "last_pr": "2026-07-10T16:00:44.421Z"
   },
   {
     "username": "s2530786-cell",
@@ -1990,6 +1990,12 @@
     "total_prs": 2,
     "first_pr": "2026-07-08T23:17:20.826Z",
     "last_pr": "2026-07-09T02:45:20.520Z"
+  },
+  {
+    "username": "dev-khimesh",
+    "total_prs": 2,
+    "first_pr": "2026-07-10T17:38:25.257Z",
+    "last_pr": "2026-07-10T17:38:39.815Z"
   },
   {
     "username": "kingskuan",
