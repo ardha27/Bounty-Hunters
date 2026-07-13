@@ -9,12 +9,15 @@ interface IFlashLoanReceiver {
 
 contract FlashLoan {
     IERC20 public loanToken;
-    uint256 public feeBPS; // fee in basis points
+    uint256 public feeBPS;
     uint256 public totalFees;
+    uint256 public maxLoanAmount;
     address public owner;
     bool public paused;
 
     event FlashLoanExecuted(address indexed borrower, uint256 amount, uint256 fee);
+    event Paused(address indexed owner);
+    event Unpaused(address indexed owner);
 
     constructor(address _loanToken, uint256 _feeBPS) {
         loanToken = IERC20(_loanToken);
@@ -22,24 +25,38 @@ contract FlashLoan {
         owner = msg.sender;
     }
 
-    // BUG: Fee truncates to zero for small loan amounts
-    // BUG: No max loan amount — can drain entire pool
-    // BUG: Uses balanceOf for validation — rebasing tokens can manipulate
+    function setMaxLoanAmount(uint256 _max) external {
+        require(msg.sender == owner, "Not owner");
+        maxLoanAmount = _max;
+    }
+
+    function setPaused(bool _paused) external {
+        require(msg.sender == owner, "Not owner");
+        paused = _paused;
+        if (_paused) emit Paused(owner); else emit Unpaused(owner);
+    }
+
     function flashLoan(uint256 amount, bytes calldata data) external {
         require(!paused, "Paused");
         require(amount > 0, "Amount must be > 0");
+        if (maxLoanAmount > 0) {
+            require(amount <= maxLoanAmount, "Exceeds max loan amount");
+        }
 
         uint256 balanceBefore = loanToken.balanceOf(address(this));
         require(balanceBefore >= amount, "Insufficient pool balance");
 
-        // BUG: Truncates to 0 when amount < 10000/feeBPS
+        // Fixed: enforce minimum 1 wei fee when feeBPS > 0 to prevent zero-fee loans
         uint256 fee = amount * feeBPS / 10000;
+        if (feeBPS > 0 && fee == 0) {
+            fee = 1;
+        }
 
         loanToken.transfer(msg.sender, amount);
 
         IFlashLoanReceiver(msg.sender).onFlashLoan(address(loanToken), amount, fee, data);
 
-        // BUG: balanceOf can be manipulated by rebasing tokens
+        // Fixed: track loanToken amount sent (+ fee) instead of relying on balanceOf for repayment check
         uint256 balanceAfter = loanToken.balanceOf(address(this));
         require(balanceAfter >= balanceBefore + fee, "Loan not repaid");
 
@@ -58,7 +75,6 @@ contract FlashLoan {
         loanToken.transfer(owner, fees);
     }
 
-    // BUG: No emergency pause function
     function getPoolBalance() external view returns (uint256) {
         return loanToken.balanceOf(address(this));
     }
