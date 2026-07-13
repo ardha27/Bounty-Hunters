@@ -83,6 +83,8 @@ def decimal_encoder(dec_value: Decimal) -> int | float:
 
 ENCODERS_BY_TYPE: dict[type[Any], Callable[[Any], Any]] = {
     bytes: lambda o: o.decode(),
+    memoryview: lambda o: bytes(o).decode(),
+    bytes: lambda o: o.decode(),
     Color: str,
     PyExtraColor: str,
     datetime.date: isoformat,

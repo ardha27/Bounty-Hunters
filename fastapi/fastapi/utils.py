@@ -93,7 +93,9 @@ def generate_operation_id_for_path(
 
 
 def generate_unique_id(route: "APIRoute") -> str:
-    operation_id = f"{route.name}{route.path_format}"
+    endpoint_mod = getattr(route.endpoint, "__module__", "").rsplit(".", 1)[-1]
+    name_prefix = f"{endpoint_mod}_{route.name}" if endpoint_mod else route.name
+    operation_id = f"{name_prefix}{route.path_format}"
     operation_id = re.sub(r"\W", "_", operation_id)
     assert route.methods
     operation_id = f"{operation_id}_{list(route.methods)[0].lower()}"

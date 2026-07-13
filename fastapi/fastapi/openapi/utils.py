@@ -39,6 +39,32 @@ from pydantic import BaseModel
 from starlette.responses import JSONResponse
 from starlette.routing import BaseRoute
 
+
+
+class OpenAPIInfo:
+    title: str = "FastAPI"
+    version: str = "0.1.0"
+    description: str = ""
+    terms_of_service: str = ""
+    contact: dict[str, str] = {}
+    license_info: dict[str, str] = {}
+    servers: list[dict[str, str]] = [{"url": "/"}]
+
+    def to_dict(self) -> dict[str, Any]:
+        info: dict[str, Any] = {
+            "title": self.title,
+            "version": self.version,
+        }
+        if self.description:
+            info["description"] = self.description
+        if self.terms_of_service:
+            info["termsOfService"] = self.terms_of_service
+        if self.contact:
+            info["contact"] = self.contact
+        if self.license_info:
+            info["license"] = self.license_info
+        return info
+
 validation_error_definition = {
     "title": "ValidationError",
     "type": "object",
