@@ -93,11 +93,32 @@ def generate_operation_id_for_path(
 
 
 def generate_unique_id(route: "APIRoute") -> str:
-    operation_id = f"{route.name}{route.path_format}"
-    operation_id = re.sub(r"\W", "_", operation_id)
-    assert route.methods
-    operation_id = f"{operation_id}_{list(route.methods)[0].lower()}"
-    return operation_id
+    method = list(route.methods)[0].lower()
+    path = route.path_format
+    # Extract prefix segments from path, strip leading/trailing slashes
+    prefix = re.sub(r"[^a-zA-Z0-9_]+", "_", path.strip("/")).strip("_").lower()
+    name = (route.name or "").lower()
+    # Build ID: method_prefix_name
+    if name and prefix:
+        base = f"{method}_{prefix}_{name}"
+    elif prefix:
+        base = f"{method}_{prefix}"
+    else:
+        base = f"{method}_{name}"
+    # Sanitize: only lowercase alphanumeric and underscores
+    operation_id = re.sub(r"[^a-z0-9_]+", "_", base)
+    operation_id = re.sub(r"_+", "_", operation_id).strip("_")
+    # Collision detection: append numeric suffix if duplicate
+    unique_id = operation_id
+    counter = 1
+    while unique_id in _seen_operation_ids:
+        unique_id = f"{operation_id}_{counter}"
+        counter += 1
+    _seen_operation_ids.add(unique_id)
+    return unique_id
+
+
+_seen_operation_ids: set[str] = set()
 
 
 def deep_dict_update(main_dict: dict[Any, Any], update_dict: dict[Any, Any]) -> None:
