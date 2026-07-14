@@ -1,4 +1,8 @@
 import binascii
+import hashlib
+import hmac
+import threading
+import time
 from base64 import b64decode
 from typing import Annotated
 
@@ -10,7 +14,7 @@ from fastapi.security.base import SecurityBase
 from fastapi.security.utils import get_authorization_scheme_param
 from pydantic import BaseModel
 from starlette.requests import Request
-from starlette.status import HTTP_401_UNAUTHORIZED
+from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_429_TOO_MANY_REQUESTS
 
 
 class HTTPBasicCredentials(BaseModel):
@@ -415,3 +419,112 @@ class HTTPDigest(HTTPBase):
             else:
                 return None
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
+
+
+class HTTPBasicWithProtection(HTTPBasic):
+    """HTTP Basic authentication with brute force protection.
+
+    Tracks failed login attempts per IP with a sliding window. Returns 429
+    after exceeding max_attempts within the window. Successful authentication
+    resets the counter.
+
+    Parameters:
+        max_attempts: Max failed attempts before lockout (default 5).
+        window_seconds: Time window in seconds for counting attempts (default 300).
+        scheme_name, realm, description, auto_error: Same as HTTPBasic.
+    """
+
+    _attempts: dict[str, list[float]] = {}
+    _lock = threading.Lock()
+
+    def __init__(
+        self,
+        *,
+        max_attempts: int = 5,
+        window_seconds: float = 300.0,
+        scheme_name: str | None = None,
+        realm: str | None = None,
+        description: str | None = None,
+        auto_error: bool = True,
+    ):
+        super().__init__(
+            scheme_name=scheme_name,
+            realm=realm,
+            description=description,
+            auto_error=auto_error,
+        )
+        self._max_attempts = max_attempts
+        self._window_seconds = window_seconds
+
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Constant-time password comparison using HMAC."""
+        return hmac.compare_digest(
+            hashlib.sha256(plain_password.encode()).hexdigest(),
+            hashed_password,
+        )
+
+    def _get_client_ip(self, request: Request) -> str:
+        """Extract client IP, preferring X-Forwarded-For."""
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        if request.client:
+            return request.client.host
+        return "unknown"
+
+    def _check_rate_limit(self, ip: str) -> tuple[bool, int]:
+        """Check attempts for IP. Returns (allowed, retry_after)."""
+        now = time.monotonic()
+        window_start = now - self._window_seconds
+
+        with self._lock:
+            timestamps = self._attempts.get(ip, [])
+            timestamps = [t for t in timestamps if t > window_start]
+
+            if len(timestamps) >= self._max_attempts:
+                oldest = min(timestamps)
+                retry_after = int(window_start + self._window_seconds - now) + 1
+                self._attempts[ip] = timestamps
+                return False, max(retry_after, 1)
+
+            return True, 0
+
+    def _record_failure(self, ip: str) -> None:
+        now = time.monotonic()
+        window_start = now - self._window_seconds
+        with self._lock:
+            timestamps = self._attempts.get(ip, [])
+            timestamps = [t for t in timestamps if t > window_start]
+            timestamps.append(now)
+            self._attempts[ip] = timestamps
+
+    def _reset_attempts(self, ip: str) -> None:
+        with self._lock:
+            self._attempts.pop(ip, None)
+
+    async def __call__(  # type: ignore
+        self, request: Request
+    ) -> HTTPBasicCredentials | None:
+        ip = self._get_client_ip(request)
+
+        allowed, retry_after = self._check_rate_limit(ip)
+        if not allowed:
+            raise HTTPException(
+                status_code=HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many authentication attempts. Try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        try:
+            result = await super().__call__(request)
+        except HTTPException:
+            self._record_failure(ip)
+            raise
+
+        if result is not None:
+            self._reset_attempts(ip)
+        else:
+            self._record_failure(ip)
+
+        return result
