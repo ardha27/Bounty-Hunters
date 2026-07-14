@@ -92,11 +92,34 @@ def generate_operation_id_for_path(
     return operation_id
 
 
+# Track generated IDs to detect and prevent duplicates
+_generated_ids: dict[str, int] = {}
+
+
 def generate_unique_id(route: "APIRoute") -> str:
-    operation_id = f"{route.name}{route.path_format}"
-    operation_id = re.sub(r"\W", "_", operation_id)
+    """
+    Generate a unique operation ID for OpenAPI, using router prefix
+    and HTTP method to prevent duplicates across routers.
+
+    Format: method_routerprefix_functionname
+    Collision detection appends a numeric suffix on duplicates.
+    """
     assert route.methods
-    operation_id = f"{operation_id}_{list(route.methods)[0].lower()}"
+    method = list(route.methods)[0].lower()
+    # Build prefix from path, stripped of path params
+    path_prefix = re.sub(r"\{.*?\}", "", route.path_format)
+    router_part = re.sub(r"\W", "_", path_prefix).strip("_")
+    if router_part:
+        base = f"{method}_{router_part}_{route.name}"
+    else:
+        base = f"{method}_{route.name}"
+    operation_id = re.sub(r"__+", "_", base)
+    # Collision detection: append numeric suffix if duplicate
+    if operation_id in _generated_ids:
+        _generated_ids[operation_id] += 1
+        operation_id = f"{operation_id}_{_generated_ids[operation_id]}"
+    else:
+        _generated_ids[operation_id] = 0
     return operation_id
 
 
