@@ -3,6 +3,9 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
+ini_set('display_errors', 'Off');
+ini_set('expose_php', 'Off');
+
 define('LARAVEL_START', microtime(true));
 
 // Determine if the application is in maintenance mode...
