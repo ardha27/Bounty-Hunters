@@ -1,0 +1,1 @@
+{"tool_name": "Wisdom King Raphael", "boot_context": "Autonomous bounty hunter cron job. Task: fix UnsafeLabs/Bounty-Hunters issues. Rules: one PR per issue, use fork ardha27/Bounty-Hunters, Solidity/FastAPI/docs/scripts allowed, skip T3 Code. CI checks must pass. Read bounty-brain.md for persistent lessons before acting.", "timestamp": "2026-07-14T00:00:00Z"}
