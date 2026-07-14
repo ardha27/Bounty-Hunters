@@ -93,10 +93,26 @@ def generate_operation_id_for_path(
 
 
 def generate_unique_id(route: "APIRoute") -> str:
-    operation_id = f"{route.name}{route.path_format}"
-    operation_id = re.sub(r"\W", "_", operation_id)
-    assert route.methods
-    operation_id = f"{operation_id}_{list(route.methods)[0].lower()}"
+    method = list(route.methods)[0].lower() if route.methods else ""
+    name = route.name or ""
+    path = route.path_format or ""
+
+    # Extract route prefix from path (everything before the last path segment or '/')
+    path_parts = [p for p in path.strip("/").split("/") if p]
+    prefix = "_".join(path_parts[:-1]) if len(path_parts) > 1 else ""
+
+    # Build operation ID: method_prefix_name (or method_name if no prefix)
+    parts = [method]
+    if prefix:
+        parts.append(prefix)
+    parts.append(name)
+    operation_id = "_".join(parts)
+
+    # Sanitize: lowercase alphanumeric + underscores only
+    operation_id = re.sub(r"[^a-z0-9_]", "", operation_id.lower())
+    # Collapse multiple underscores
+    operation_id = re.sub(r"_+", "_", operation_id).strip("_")
+
     return operation_id
 
 
