@@ -21,9 +21,9 @@ log_message() {
 }
 
 # Check if backup directory exists
-if [ ! -d $BACKUP_DIR ]; then
+if [ ! -d "$BACKUP_DIR" ]; then
     echo "Creating backup directory..."
-    mkdir -p $BACKUP_DIR
+    mkdir -p "$BACKUP_DIR"
     if [ $? -ne 0 ]; then
         log_message "ERROR: Failed to create backup directory"
         exit 1
@@ -53,9 +53,9 @@ fi
 
 # Remove old backups beyond retention period
 log_message "Cleaning up backups older than ${RETENTION_DAYS} days..."
-find $BACKUP_DIR -name "*.sql.gz" -mtime +${RETENTION_DAYS} -delete
+find "$BACKUP_DIR" -name "*.sql.gz" -mtime +${RETENTION_DAYS} -delete
 
-REMAINING=$(ls -1 $BACKUP_DIR/*.sql.gz 2>/dev/null | wc -l)
+REMAINING=$(ls -1 "$BACKUP_DIR"/*.sql.gz 2>/dev/null | wc -l)
 log_message "Backup rotation complete. ${REMAINING} backups remaining."
 
 echo "Backup completed successfully."
