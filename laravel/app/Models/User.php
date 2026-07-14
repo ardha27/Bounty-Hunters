@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -28,5 +29,18 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Set the user's password with configurable bcrypt rounds.
+     *
+     * @param  string  $value
+     * @return void
+     */
+    protected function setPasswordAttribute(string $value): void
+    {
+        $rounds = config('hashing.bcrypt.rounds', 10);
+        $options = ['rounds' => (int) $rounds];
+        $this->attributes['password'] = Hash::make($value, $options);
     }
 }
