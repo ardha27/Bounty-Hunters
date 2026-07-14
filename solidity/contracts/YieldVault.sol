@@ -19,6 +19,8 @@ contract YieldVault {
 
     address public rewardDistributor;
 
+    uint256 private constant PRECISION = 1e18;
+
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
@@ -29,17 +31,20 @@ contract YieldVault {
         rewardDistributor = msg.sender;
     }
 
-    // BUG: Does not cap at periodFinish — accrues phantom rewards after period ends
     function rewardPerToken() public view returns (uint256) {
         if (totalSupply == 0) return rewardPerTokenStored;
+        // Cap at periodFinish to prevent phantom rewards after period ends
+        uint256 lastTime = lastUpdateTime;
+        uint256 effectiveTimestamp = block.timestamp < periodFinish ? block.timestamp : periodFinish;
+        if (effectiveTimestamp <= lastTime) return rewardPerTokenStored;
+        // rewardRate already includes PRECISION; earned() divides by PRECISION
         return rewardPerTokenStored + (
-            (block.timestamp - lastUpdateTime) * rewardRate * 1e18 / totalSupply
+            (effectiveTimestamp - lastTime) * rewardRate / totalSupply
         );
     }
 
-    // BUG: Uses uncapped rewardPerToken
     function earned(address account) public view returns (uint256) {
-        return balanceOf[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
+        return balanceOf[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / PRECISION + rewards[account];
     }
 
     modifier updateReward(address account) {
@@ -77,11 +82,16 @@ contract YieldVault {
         }
     }
 
-    // BUG: No access control — anyone can call
-    // BUG: Precision loss in rewardRate calculation
     function notifyRewardAmount(uint256 reward, uint256 duration) external updateReward(address(0)) {
-        rewardRate = reward / duration;
+        require(msg.sender == rewardDistributor, "Not reward distributor");
+        // Use higher precision to avoid precision loss: reward * PRECISION / duration
+        rewardRate = reward * PRECISION / duration;
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + duration;
+    }
+
+    function setRewardDistributor(address _distributor) external {
+        require(msg.sender == rewardDistributor, "Not reward distributor");
+        rewardDistributor = _distributor;
     }
 }
