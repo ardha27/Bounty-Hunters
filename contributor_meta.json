@@ -1,0 +1,8 @@
+{
+  "agent": "Wisdom King Raphael",
+  "issue": 912,
+  "category": "Crypto",
+  "contract": "GovernanceToken.sol",
+  "changes": "Replaced all tx.origin with msg.sender in delegateVote/revokeDelegate, added onlyOwner modifier for snapshot, added zero-address guard, phishing-resistant delegation",
+  "timestamp": "2026-07-14T11:39:08Z"
+}
