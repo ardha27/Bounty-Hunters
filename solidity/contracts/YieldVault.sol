@@ -6,22 +6,24 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract YieldVault {
     IERC20 public rewardToken;
     IERC20 public stakingToken;
-
     uint256 public rewardRate;
     uint256 public periodFinish;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
     uint256 public totalSupply;
+    uint256 public constant PRECISION = 1e18;
+    uint256 public rewardBalance;
 
     mapping(address => uint256) public balanceOf;
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
-
     address public rewardDistributor;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
+
+    modifier onlyDistributor() { require(msg.sender == rewardDistributor, "Not distributor"); _; }
 
     constructor(address _stakingToken, address _rewardToken) {
         stakingToken = IERC20(_stakingToken);
@@ -29,22 +31,23 @@ contract YieldVault {
         rewardDistributor = msg.sender;
     }
 
-    // BUG: Does not cap at periodFinish — accrues phantom rewards after period ends
-    function rewardPerToken() public view returns (uint256) {
-        if (totalSupply == 0) return rewardPerTokenStored;
-        return rewardPerTokenStored + (
-            (block.timestamp - lastUpdateTime) * rewardRate * 1e18 / totalSupply
-        );
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
-    // BUG: Uses uncapped rewardPerToken
+    function rewardPerToken() public view returns (uint256) {
+        if (totalSupply == 0) return rewardPerTokenStored;
+        uint256 timeDelta = lastTimeRewardApplicable() - lastUpdateTime;
+        return rewardPerTokenStored + (timeDelta * rewardRate * PRECISION / totalSupply);
+    }
+
     function earned(address account) public view returns (uint256) {
-        return balanceOf[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
+        return balanceOf[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / PRECISION + rewards[account];
     }
 
     modifier updateReward(address account) {
         rewardPerTokenStored = rewardPerToken();
-        lastUpdateTime = block.timestamp;
+        lastUpdateTime = lastTimeRewardApplicable();
         if (account != address(0)) {
             rewards[account] = earned(account);
             userRewardPerTokenPaid[account] = rewardPerTokenStored;
@@ -72,15 +75,23 @@ contract YieldVault {
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
+            rewardBalance -= reward;
             rewardToken.transfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
 
-    // BUG: No access control — anyone can call
-    // BUG: Precision loss in rewardRate calculation
-    function notifyRewardAmount(uint256 reward, uint256 duration) external updateReward(address(0)) {
-        rewardRate = reward / duration;
+    function notifyRewardAmount(uint256 reward, uint256 duration) external onlyDistributor updateReward(address(0)) {
+        require(reward > 0 && duration > 0, "Invalid params");
+        rewardToken.transferFrom(msg.sender, address(this), reward);
+        rewardBalance += reward;
+        if (block.timestamp >= periodFinish) {
+            rewardRate = reward * PRECISION / duration;
+        } else {
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward * PRECISION + leftover) / duration;
+        }
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + duration;
     }
