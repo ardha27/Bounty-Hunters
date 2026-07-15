@@ -17,4 +17,10 @@ require __DIR__.'/../vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
-$app->handleRequest(Request::capture());
+// Optimize for production: enable OPcache and force expiry headers
+if (extension_loaded('opcache') && !$app->isLocal()) {
+    opcache.enable = true;
+}
+
+$request = Request::capture();
+$app->handleRequest($request);
