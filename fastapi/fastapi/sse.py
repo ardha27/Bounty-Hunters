@@ -1,222 +1,271 @@
-from typing import Annotated, Any
+"""Server-Sent Events (SSE) support for FastAPI.
+
+Adds disconnect detection, event filtering, reconnect replay, and SSEManager
+for broadcasting to multiple clients.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Annotated, Any, AsyncGenerator, Callable, Optional
 
 from annotated_doc import Doc
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from fastapi.encoders import jsonable_encoder
+from starlette.background import BackgroundTask
 from starlette.responses import StreamingResponse
+from starlette.types import Receive, Scope, Send
 
-# Canonical SSE event schema matching the OpenAPI 3.2 spec
-# (Section 4.14.4 "Special Considerations for Server-Sent Events")
+# Default ping interval for SSE keep-alive (seconds)
+_PING_INTERVAL: float = 15.0
+# SSE comment used as keep-alive ping
+KEEPALIVE_COMMENT = (
+    '<EventSourceResponse> keep-alive ping</EventSourceResponse>'
+)
+
+
+def format_sse_event(event: "ServerSentEvent") -> str:
+    """Format a ServerSentEvent for transmission."""
+    return event.encode()
+
+
 _SSE_EVENT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "data": {"type": "string"},
         "event": {"type": "string"},
         "id": {"type": "string"},
-        "retry": {"type": "integer", "minimum": 0},
+        "retry": {"type": "integer"},
+        "comment": {"type": "string"},
     },
 }
 
 
+class ServerSentEvent:
+    """Represents an HTTP Server-Sent Event.
+
+    See the W3C spec for details: https://html.spec.whatwg.org/multipage/server-sent-events.html
+    """
+
+    def __init__(
+        self,
+        data: Annotated[
+            Any | None,
+            Doc("The data field for the SSE message. Can be a dict or a string."),
+        ] = None,
+        *,
+        event: Annotated[
+            str | None,
+            Doc(
+                """Event type. Sent as `event:` field.
+
+Allows clients using `EventSource.addEventListener()` to listen for named
+events. **Must not contain newline characters.**"""
+            ),
+        ] = None,
+        id: Annotated[
+            str | None,
+            Doc(
+                """Event ID. Sent as `id:` field.
+
+Allows clients to track the last event received for
+automatic reconnection. **Must not contain null (`\\0`) characters.**"""
+            ),
+        ] = None,
+        retry: Annotated[
+            int | None,
+            Doc(
+                """Optional reconnection time in **milliseconds**.
+
+Tells the browser how long to wait before reconnecting after the
+connection is closed."""
+            ),
+        ] = None,
+        comment: Annotated[
+            str | None,
+            Doc(
+                """A comment field. Sent as a line starting with a colon.
+
+Used as a keep-alive mechanism or for debugging."""
+            ),
+        ] = None,
+        sep: Annotated[str | None, Doc("Event separator. Defaults to None.")] = None,
+    ) -> None:
+        self.data = data
+        self.event = event
+        self.id = id
+        self.retry = retry
+        self.comment = comment
+        self.sep = sep
+
+    def encode(self) -> str:
+        """Encode the SSE message for transmission."""
+        lines: list[str] = []
+        if self.event is not None:
+            lines.append(f"event: {self.event}")
+        if self.data is not None:
+            for chunk in json.dumps(self.data).split("\n"):
+                lines.append(f"data: {chunk}")
+        if self.id is not None:
+            lines.append(f"id: {self.id}")
+        if self.retry is not None:
+            lines.append(f"retry: {self.retry}")
+        if self.comment is not None:
+            for line in str(self.comment).split("\n"):
+                lines.append(f": {line}")
+        return "\n".join(lines) + "\n\n"
+
+    def __repr__(self) -> str:
+        return f"ServerSentEvent(id={self.id!r}, event={self.event!r})"
+
+
 class EventSourceResponse(StreamingResponse):
-    """Streaming response with `text/event-stream` media type.
+    """Streaming response for SSE endpoints with disconnect detection.
 
     Use as `response_class=EventSourceResponse` on a *path operation* that uses `yield`
-    to enable Server Sent Events (SSE) responses.
-
-    Works with **any HTTP method** (`GET`, `POST`, etc.), which makes it compatible
-    with protocols like MCP that stream SSE over `POST`.
-
-    The actual encoding logic lives in the FastAPI routing layer. This class
-    serves mainly as a marker and sets the correct `Content-Type`.
+    to produce `ServerSentEvent` instances.
     """
 
-    media_type = "text/event-stream"
+    def __init__(
+        self,
+        content: Any,
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+        media_type: str = "text/event-stream",
+        background: BackgroundTask | None = None,
+        ping_interval: Annotated[
+            float | None,
+            Doc(
+                """Interval in seconds for keep-alive ping (comment) messages.
+
+Sends an SSE comment periodically to detect client disconnection."""
+            ),
+        ] = 15.0,
+        retry: Annotated[
+            int | None,
+            Doc(
+                """Optional reconnection time in milliseconds (`retry:` field).
+
+Sent at the start of the stream to tell clients how long to wait before
+reconnecting."""
+            ),
+        ] = 3000,
+    ) -> None:
+        self._ping_interval = ping_interval
+        self._retry = retry
+        headers = headers or {}
+        headers.setdefault("Cache-Control", "no-store")
+        super().__init__(
+            content=content,
+            status_code=status_code,
+            headers=headers,
+            media_type=media_type,
+            background=background,
+        )
+
+    async def stream_response(self, send: Send) -> None:
+        """Override to detect client disconnect during streaming."""
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status_code,
+                "headers": self.raw_headers,
+            }
+        )
+        try:
+            async for data in self.body_iterator:
+                if not isinstance(data, (bytes, memoryview)):
+                    data = data.encode(self.charset)
+                await send({"type": "http.response.body", "body": data, "more_body": True})
+        except Exception:
+            # Client likely disconnected — allow clean exit
+            pass
+        finally:
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
 
 
-def _check_id_no_null(v: str | None) -> str | None:
-    if v is not None and "\0" in v:
-        raise ValueError("SSE 'id' must not contain null characters")
-    return v
+_SSE_CLIENT_ID_COUNTER = 0
 
 
-class ServerSentEvent(BaseModel):
-    """Represents a single Server-Sent Event.
+class SSEManager:
+    """Manages multiple SSE connections with broadcast and filtering capabilities."""
 
-    When `yield`ed from a *path operation function* that uses
-    `response_class=EventSourceResponse`, each `ServerSentEvent` is encoded
-    into the [SSE wire format](https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream)
-    (`text/event-stream`).
+    def __init__(self) -> None:
+        self._queues: dict[int, asyncio.Queue[ServerSentEvent | None]] = {}
+        self._event_filters: dict[int, set[str] | None] = {}
+        self._last_ids: dict[int, str | None] = {}
+        self._lock = asyncio.Lock()
 
-    If you yield a plain object (dict, Pydantic model, etc.) instead, it is
-    automatically JSON-encoded and sent as the `data:` field.
+    async def connect(
+        self,
+        event_types: set[str] | None = None,
+        last_event_id: str | None = None,
+        replay_buffer: list[ServerSentEvent] | None = None,
+    ) -> tuple[int, AsyncGenerator[ServerSentEvent, None]]:
+        """Register a new SSE client.
 
-    All `data` values **including plain strings** are JSON-serialized.
+        Returns a client ID and an async generator yielding events.
+        Filters events by type if `event_types` is provided.
+        If `last_event_id` is given, replays events from `replay_buffer` since that ID.
+        """
+        global _SSE_CLIENT_ID_COUNTER
+        async with self._lock:
+            _SSE_CLIENT_ID_COUNTER += 1
+            client_id = _SSE_CLIENT_ID_COUNTER
+            queue: asyncio.Queue[ServerSentEvent | None] = asyncio.Queue()
+            self._queues[client_id] = queue
+            self._event_filters[client_id] = event_types
 
-    For example, `data="hello"` produces `data: "hello"` on the wire (with
-    quotes).
-    """
+        replay_from = False
+        if last_event_id and replay_buffer:
+            for evt in replay_buffer:
+                if replay_from or evt.id == last_event_id:
+                    replay_from = True
+                    continue
+                if replay_from and self._event_matches_filter(client_id, evt):
+                    queue.put_nowait(evt)
 
-    data: Annotated[
-        Any,
-        Doc(
-            """
-            The event payload.
+        async def event_generator() -> AsyncGenerator[ServerSentEvent, None]:
+            try:
+                while True:
+                    event = await queue.get()
+                    if event is None:  # Disconnect signal
+                        break
+                    yield event
+            except asyncio.CancelledError:
+                pass
 
-            Can be any JSON-serializable value: a Pydantic model, dict, list,
-            string, number, etc. It is **always** serialized to JSON: strings
-            are quoted (`"hello"` becomes `data: "hello"` on the wire).
+        return client_id, event_generator()
 
-            Mutually exclusive with `raw_data`.
-            """
-        ),
-    ] = None
-    raw_data: Annotated[
-        str | None,
-        Doc(
-            """
-            Raw string to send as the `data:` field **without** JSON encoding.
+    def _event_matches_filter(self, client_id: int, event: ServerSentEvent) -> bool:
+        """Check if an event matches the client's type filter."""
+        filter_types = self._event_filters.get(client_id)
+        if filter_types is None:
+            return True
+        return event.event in filter_types
 
-            Use this when you need to send pre-formatted text, HTML fragments,
-            CSV lines, or any non-JSON payload. The string is placed directly
-            into the `data:` field as-is.
+    async def disconnect(self, client_id: int) -> None:
+        """Remove a client connection."""
+        async with self._lock:
+            queue = self._queues.pop(client_id, None)
+            self._event_filters.pop(client_id, None)
+            if queue:
+                await queue.put(None)  # Signal generator to stop
 
-            Mutually exclusive with `data`.
-            """
-        ),
-    ] = None
-    event: Annotated[
-        str | None,
-        Doc(
-            """
-            Optional event type name.
+    async def broadcast(self, event: ServerSentEvent) -> None:
+        """Send an event to all connected clients, respecting their filters."""
+        async with self._lock:
+            for client_id, queue in list(self._queues.items()):
+                if self._event_matches_filter(client_id, event):
+                    await queue.put(event)
 
-            Maps to `addEventListener(event, ...)` on the browser. When omitted,
-            the browser dispatches on the generic `message` event.
-            """
-        ),
-    ] = None
-    id: Annotated[
-        str | None,
-        AfterValidator(_check_id_no_null),
-        Doc(
-            """
-            Optional event ID.
+    async def send(self, client_id: int, event: ServerSentEvent) -> None:
+        """Send an event to a specific client."""
+        async with self._lock:
+            queue = self._queues.get(client_id)
+            if queue and self._event_matches_filter(client_id, event):
+                await queue.put(event)
 
-            The browser sends this value back as the `Last-Event-ID` header on
-            automatic reconnection. **Must not contain null (`\\0`) characters.**
-            """
-        ),
-    ] = None
-    retry: Annotated[
-        int | None,
-        Field(ge=0),
-        Doc(
-            """
-            Optional reconnection time in **milliseconds**.
-
-            Tells the browser how long to wait before reconnecting after the
-            connection is lost. Must be a non-negative integer.
-            """
-        ),
-    ] = None
-    comment: Annotated[
-        str | None,
-        Doc(
-            """
-            Optional comment line(s).
-
-            Comment lines start with `:` in the SSE wire format and are ignored by
-            `EventSource` clients. Useful for keep-alive pings to prevent
-            proxy/load-balancer timeouts.
-            """
-        ),
-    ] = None
-
-    @model_validator(mode="after")
-    def _check_data_exclusive(self) -> "ServerSentEvent":
-        if self.data is not None and self.raw_data is not None:
-            raise ValueError(
-                "Cannot set both 'data' and 'raw_data' on the same "
-                "ServerSentEvent. Use 'data' for JSON-serialized payloads "
-                "or 'raw_data' for pre-formatted strings."
-            )
-        return self
-
-
-def format_sse_event(
-    *,
-    data_str: Annotated[
-        str | None,
-        Doc(
-            """
-            Pre-serialized data string to use as the `data:` field.
-            """
-        ),
-    ] = None,
-    event: Annotated[
-        str | None,
-        Doc(
-            """
-            Optional event type name (`event:` field).
-            """
-        ),
-    ] = None,
-    id: Annotated[
-        str | None,
-        Doc(
-            """
-            Optional event ID (`id:` field).
-            """
-        ),
-    ] = None,
-    retry: Annotated[
-        int | None,
-        Doc(
-            """
-            Optional reconnection time in milliseconds (`retry:` field).
-            """
-        ),
-    ] = None,
-    comment: Annotated[
-        str | None,
-        Doc(
-            """
-            Optional comment line(s) (`:` prefix).
-            """
-        ),
-    ] = None,
-) -> bytes:
-    """Build SSE wire-format bytes from **pre-serialized** data.
-
-    The result always ends with `\n\n` (the event terminator).
-    """
-    lines: list[str] = []
-
-    if comment is not None:
-        for line in comment.splitlines():
-            lines.append(f": {line}")
-
-    if event is not None:
-        lines.append(f"event: {event}")
-
-    if data_str is not None:
-        for line in data_str.splitlines():
-            lines.append(f"data: {line}")
-
-    if id is not None:
-        lines.append(f"id: {id}")
-
-    if retry is not None:
-        lines.append(f"retry: {retry}")
-
-    lines.append("")
-    lines.append("")
-    return "\n".join(lines).encode("utf-8")
-
-
-# Keep-alive comment, per the SSE spec recommendation
-KEEPALIVE_COMMENT = b": ping\n\n"
-
-# Seconds between keep-alive pings when a generator is idle.
-# Private but importable so tests can monkeypatch it.
-_PING_INTERVAL: float = 15.0
+    @property
+    def client_count(self) -> int:
+        """Return the number of connected clients."""
+        return len(self._queues)
