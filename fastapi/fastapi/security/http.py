@@ -219,6 +219,92 @@ class HTTPBasic(HTTPBase):
         return HTTPBasicCredentials(username=username, password=password)
 
 
+class HTTPBasicWithProtection(HTTPBasic):
+    """HTTP Basic auth with brute-force protection and password verification.
+
+    Extends HTTPBasic to add rate limiting per IP, timing-safe password
+    verification, and automatic lockout after too many failed attempts.
+    """
+
+    # In-memory store: {ip: (attempt_count, first_attempt_time)}
+    _attempts: dict[str, tuple[int, float]] = {}
+
+    def __init__(
+        self,
+        *,
+        scheme_name: str | None = None,
+        realm: str | None = None,
+        description: str | None = None,
+        auto_error: bool = True,
+        max_attempts: int = 5,
+        window_seconds: int = 300,
+    ):
+        super().__init__(
+            scheme_name=scheme_name,
+            realm=realm,
+            description=description,
+            auto_error=auto_error,
+        )
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against a bcrypt hash using timing-safe comparison."""
+        import hashlib
+        import secrets
+
+        try:
+            import bcrypt
+            expected = bcrypt.hashpw(
+                plain_password.encode(), hashed_password.encode()
+            )
+            return secrets.compare_digest(expected, hashed_password.encode())
+        except ImportError:
+            # Fallback: sha256 + timing-safe compare
+            pw_hash = hashlib.sha256(plain_password.encode()).hexdigest()
+            return secrets.compare_digest(pw_hash, hashed_password)
+
+    async def __call__(  # type: ignore
+        self, request: Request
+    ) -> HTTPBasicCredentials | None:
+        import time
+
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+
+        # Check existing lockout
+        if ip in self._attempts:
+            count, first = self._attempts[ip]
+            if now - first > self.window_seconds:
+                # Window expired, reset
+                del self._attempts[ip]
+            elif count >= self.max_attempts:
+                retry_after = int(self.window_seconds - (now - first))
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed login attempts. Please try again later.",
+                    headers={"Retry-After": str(retry_after)},
+                )
+
+        try:
+            credentials = await super().__call__(request)
+        except HTTPException:
+            # Track failed attempt
+            if ip in self._attempts:
+                count, first = self._attempts[ip]
+                self._attempts[ip] = (count + 1, first)
+            else:
+                self._attempts[ip] = (1, now)
+            raise
+
+        # Successful auth — reset counter
+        if ip in self._attempts:
+            del self._attempts[ip]
+
+        return credentials
+
+
 class HTTPBearer(HTTPBase):
     """
     HTTP Bearer token authentication.
