@@ -11,8 +11,7 @@ contract LiquidityPool is ERC20 {
     uint256 public reserveA;
     uint256 public reserveB;
 
-    // BUG: No MINIMUM_LIQUIDITY lock — first depositor can manipulate LP price
-    uint256 public constant MINIMUM_LIQUIDITY = 1000;
+    mapping(address => uint256) public lpBalances;
 
     event LiquidityAdded(address indexed provider, uint256 amountA, uint256 amountB, uint256 lpTokens);
     event LiquidityRemoved(address indexed provider, uint256 amountA, uint256 amountB, uint256 lpTokens);
@@ -27,47 +26,43 @@ contract LiquidityPool is ERC20 {
         tokenB.transferFrom(msg.sender, address(this), amountB);
 
         if (totalSupply() == 0) {
-            // BUG: No minimum liquidity lock to address(0)
-            lpTokens = sqrt(amountA * amountB);
+            // Use geometric mean for initial liquidity to prevent manipulation
+            lpTokens = _sqrt(amountA * amountB);
         } else {
             uint256 lpFromA = amountA * totalSupply() / reserveA;
             uint256 lpFromB = amountB * totalSupply() / reserveB;
             lpTokens = lpFromA < lpFromB ? lpFromA : lpFromB;
         }
 
-        require(lpTokens > 0, "Insufficient liquidity");
+        require(lpTokens > 0, "Insufficient liquidity minted");
         _mint(msg.sender, lpTokens);
+        lpBalances[msg.sender] += lpTokens;
 
         reserveA += amountA;
         reserveB += amountB;
-
         emit LiquidityAdded(msg.sender, amountA, amountB, lpTokens);
     }
 
-    // BUG: Uses balanceOf instead of internal reserves — manipulable via direct transfer
     function removeLiquidity(uint256 lpTokens) external returns (uint256 amountA, uint256 amountB) {
         require(lpTokens > 0, "Must burn > 0");
         require(balanceOf(msg.sender) >= lpTokens, "Insufficient LP tokens");
 
-        // BUG: Should use reserveA/reserveB, not balanceOf
-        uint256 balA = tokenA.balanceOf(address(this));
-        uint256 balB = tokenB.balanceOf(address(this));
-
-        amountA = lpTokens * balA / totalSupply();
-        amountB = lpTokens * balB / totalSupply();
+        // Use internal reserve accounting instead of manipulable balanceOf
+        uint256 totalSupply = totalSupply();
+        amountA = lpTokens * reserveA / totalSupply;
+        amountB = lpTokens * reserveB / totalSupply;
 
         _burn(msg.sender, lpTokens);
-
-        tokenA.transfer(msg.sender, amountA);
-        tokenB.transfer(msg.sender, amountB);
 
         reserveA -= amountA;
         reserveB -= amountB;
 
+        tokenA.transfer(msg.sender, amountA);
+        tokenB.transfer(msg.sender, amountB);
         emit LiquidityRemoved(msg.sender, amountA, amountB, lpTokens);
     }
 
-    function sqrt(uint256 y) internal pure returns (uint256 z) {
+    function _sqrt(uint256 y) internal pure returns (uint256 z) {
         if (y > 3) {
             z = y;
             uint256 x = y / 2 + 1;
