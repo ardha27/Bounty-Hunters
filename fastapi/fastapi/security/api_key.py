@@ -318,3 +318,97 @@ class APIKeyCookie(APIKeyBase):
     async def __call__(self, request: Request) -> str | None:
         api_key = request.cookies.get(self.model.name)
         return self.check_api_key(api_key)
+
+
+import time
+import threading
+from typing import Optional, Set
+
+from starlette.status import HTTP_429_TOO_MANY_REQUESTS
+
+
+class APIKeyHeaderWithRateLimit(APIKeyHeader):
+    """APIKeyHeader with rate limiting and deprecated key support.
+
+    Additional parameters:
+    - **rate_limit**: string like "100/minute" or "1000/hour"
+    - **deprecated_keys**: set of keys that authenticate but get Warning header
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        scheme_name: Optional[str] = None,
+        description: Optional[str] = None,
+        auto_error: bool = True,
+        rate_limit: Optional[str] = None,
+        deprecated_keys: Optional[Set[str]] = None,
+    ):
+        super().__init__(
+            name=name,
+            scheme_name=scheme_name,
+            description=description,
+            auto_error=auto_error,
+        )
+        self.rate_limit = rate_limit
+        self._max_requests: int = 0
+        self._window_seconds: float = 0.0
+        self._store: dict[str, tuple[int, float]] = {}
+        self._lock = threading.Lock()
+        if rate_limit:
+            parts = rate_limit.split("/")
+            if len(parts) != 2:
+                raise ValueError(f"Invalid rate_limit: {rate_limit}")
+            self._max_requests = int(parts[0])
+            unit = parts[1].strip().lower()
+            if unit in ("minute", "minutes", "min"):
+                self._window_seconds = 60.0
+            elif unit in ("hour", "hours", "hr"):
+                self._window_seconds = 3600.0
+            elif unit in ("second", "seconds", "sec", "s"):
+                self._window_seconds = 1.0
+            elif unit in ("day", "days"):
+                self._window_seconds = 86400.0
+            else:
+                raise ValueError(f"Unknown rate limit unit: {unit}")
+        self.deprecated_keys: Set[str] = deprecated_keys or set()
+
+    def _check_rate_limit(self, api_key: str) -> tuple[bool, int]:
+        """Returns (exceeded: bool, retry_after_seconds: int)."""
+        if self._window_seconds == 0:
+            return False, 0
+        now = time.time()
+        window_start = now - self._window_seconds
+        with self._lock:
+            count, window_reset = self._store.get(api_key, (0, now + self._window_seconds))
+            if now > window_reset:
+                count = 0
+                window_reset = now + self._window_seconds
+            if count >= self._max_requests:
+                retry_after = int(max(1, window_reset - now))
+                return True, retry_after
+            count += 1
+            self._store[api_key] = (count, window_reset)
+            return False, 0
+
+    async def __call__(self, request: Request) -> Optional[str]:
+        api_key = await super().__call__(request)
+        if api_key is None:
+            return None
+
+        exceeded, retry_after = self._check_rate_limit(api_key)
+        if exceeded:
+            raise HTTPException(
+                status_code=HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        return api_key
+
+    def check_deprecated(self, api_key: str) -> Optional[str]:
+        """Return Warning header value if key is deprecated, otherwise None."""
+        if api_key in self.deprecated_keys:
+            return '299 - "This API key is deprecated and will be deactivated."'
+        return None
