@@ -96,7 +96,12 @@ def generate_unique_id(route: "APIRoute") -> str:
     operation_id = f"{route.name}{route.path_format}"
     operation_id = re.sub(r"\W", "_", operation_id)
     assert route.methods
-    operation_id = f"{operation_id}_{list(route.methods)[0].lower()}"
+    method = list(route.methods)[0].lower()
+    operation_id = f"{method}_{operation_id}"
+    # Sanitize to lowercase alphanumeric and underscores only
+    operation_id = re.sub(r"[^a-z0-9_]", "_", operation_id.lower())
+    # Ensure no double underscores and strip leading/trailing underscores
+    operation_id = re.sub(r"__+", "_", operation_id).strip("_")
     return operation_id
 
 
