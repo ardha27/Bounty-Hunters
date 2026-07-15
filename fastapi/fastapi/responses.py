@@ -1,5 +1,7 @@
 import importlib
-from typing import Any, Protocol, cast
+import csv
+import io
+from typing import Any, AsyncGenerator, Protocol, cast
 
 from fastapi.exceptions import FastAPIDeprecationWarning
 from fastapi.sse import EventSourceResponse as EventSourceResponse  # noqa
@@ -96,3 +98,56 @@ class ORJSONResponse(JSONResponse):
         return orjson.dumps(
             content, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_SERIALIZE_NUMPY
         )
+
+
+class StreamingCSVResponse(StreamingResponse):
+    """Streaming CSV response for large dataset exports.
+
+    Accepts an async generator of row data (each row is an iterable).
+    Sets ``Content-Type: text/csv`` and ``Content-Disposition: attachment``.
+    Handles RFC 4180 escaping: commas, double quotes, newlines.
+    """
+
+    media_type = "text/csv"
+
+    def __init__(
+        self,
+        content: AsyncGenerator[Any, None],
+        *,
+        headers: list[str] | None = None,
+        filename: str | None = None,
+        delimiter: str = ",",
+        status_code: int = 200,
+    ) -> None:
+        self._csv_headers = headers
+        self._delimiter = delimiter
+        resolved_filename = filename or "export.csv"
+        super().__init__(
+            content=self._csv_generator(content),
+            status_code=status_code,
+            media_type=self.media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{resolved_filename}"',
+            },
+        )
+
+    async def _csv_generator(
+        self, content: AsyncGenerator[Any, None]
+    ) -> AsyncGenerator[bytes, None]:
+        """Stream rows through an in-memory CSV writer buffer, yielding chunks."""
+        buffer = io.StringIO()
+        writer = csv.writer(buffer, delimiter=self._delimiter, lineterminator="\n")
+
+        if self._csv_headers:
+            writer.writerow(self._csv_headers)
+            yield buffer.getvalue().encode("utf-8")
+            buffer.truncate(0)
+            buffer.seek(0)
+
+        async for row in content:
+            writer.writerow(row)
+            chunk = buffer.getvalue().encode("utf-8")
+            if chunk:
+                yield chunk
+            buffer.truncate(0)
+            buffer.seek(0)
