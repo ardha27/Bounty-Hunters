@@ -1266,6 +1266,23 @@ class APIRouter(routing.Router):
                 """
             ),
         ] = Default(True),
+        middleware: Annotated[
+            list[Any] | None,
+            Doc(
+                """
+                A list of middleware classes or callables to apply to this router.
+
+                Router-level middleware only affects routes registered on this
+                specific router, not the entire application. Both Starlette-style
+                middleware classes and simple ASGI callable middleware are supported.
+
+                When the router is included via ``app.include_router()``, the
+                router middleware is preserved.
+
+                Use ``router.add_middleware()`` for a convenience method.
+                """
+            ),
+        ] = None,
     ) -> None:
         # Determine the lifespan context to use
         if lifespan is None:
@@ -1313,6 +1330,11 @@ class APIRouter(routing.Router):
         self.default_response_class = default_response_class
         self.generate_unique_id_function = generate_unique_id_function
         self.strict_content_type = strict_content_type
+        self.user_middleware: list[Any] = list(middleware or [])
+
+    def add_middleware(self, middleware: Any) -> None:
+        """Add middleware to this router (only applies to routes on this router)."""
+        self.user_middleware.append(middleware)
 
     def route(
         self,
@@ -1823,6 +1845,7 @@ class APIRouter(routing.Router):
             self.add_event_handler("startup", handler)
         for handler in router.on_shutdown:
             self.add_event_handler("shutdown", handler)
+        self.user_middleware.extend(router.user_middleware)
         self.lifespan_context = _merge_lifespan_context(
             self.lifespan_context,
             router.lifespan_context,
