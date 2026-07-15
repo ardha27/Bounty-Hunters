@@ -73,6 +73,7 @@ from fastapi.utils import (
     is_body_allowed_for_status_code,
 )
 from starlette import routing
+from starlette.middleware import Middleware
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import is_async_callable
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
@@ -1266,7 +1267,20 @@ class APIRouter(routing.Router):
                 """
             ),
         ] = Default(True),
+        middleware: Annotated[
+            Sequence[Middleware] | None,
+            Doc(
+                """
+                A list of middleware to apply to this router.
+
+                Middleware added to a router only affects routes on that router.
+                Supports both Starlette-style middleware classes and simple callable
+                middleware. Use `add_middleware` as a convenience method.
+                """
+            ),
+        ] = None,
     ) -> None:
+        self._router_middleware = middleware or []
         # Determine the lifespan context to use
         if lifespan is None:
             # Use the default lifespan that runs on_startup/on_shutdown handlers
@@ -1284,6 +1298,7 @@ class APIRouter(routing.Router):
             redirect_slashes=redirect_slashes,
             default=default,
             lifespan=lifespan_context,
+            middleware=self._router_middleware if self._router_middleware else None,
         )
         if prefix:
             assert prefix.startswith("/"), "A path prefix must start with '/'"
@@ -1332,6 +1347,14 @@ class APIRouter(routing.Router):
             return func
 
         return decorator
+
+    def add_middleware(self, middleware_cls: type[Any], **options: Any) -> None:
+        """Add middleware to this router. Only affects routes on this router.
+
+        Accepts either a Starlette-style middleware class or a simple callable.
+        """
+        from starlette.middleware import Middleware
+        self._router_middleware.append(Middleware(middleware_cls, **options))
 
     def add_api_route(
         self,
