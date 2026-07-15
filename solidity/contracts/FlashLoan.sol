@@ -4,62 +4,57 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IFlashLoanReceiver {
-    function onFlashLoan(address token, uint256 amount, uint256 fee, bytes calldata data) external;
+    function executeOperation(address token, uint256 amount, uint256 fee, bytes calldata params) external returns (bool);
 }
 
 contract FlashLoan {
-    IERC20 public loanToken;
-    uint256 public feeBPS; // fee in basis points
-    uint256 public totalFees;
+    mapping(address => uint256) public poolBalances;
+    uint256 public flashLoanFee = 9; // 0.09% in basis points
+    uint256 public constant MIN_FEE_BPS = 1; // minimum 0.01% fee
     address public owner;
-    bool public paused;
 
-    event FlashLoanExecuted(address indexed borrower, uint256 amount, uint256 fee);
+    event FlashLoanExecuted(address indexed borrower, address token, uint256 amount, uint256 feePaid);
 
-    constructor(address _loanToken, uint256 _feeBPS) {
-        loanToken = IERC20(_loanToken);
-        feeBPS = _feeBPS;
+    constructor() {
         owner = msg.sender;
     }
 
-    // BUG: Fee truncates to zero for small loan amounts
-    // BUG: No max loan amount — can drain entire pool
-    // BUG: Uses balanceOf for validation — rebasing tokens can manipulate
-    function flashLoan(uint256 amount, bytes calldata data) external {
-        require(!paused, "Paused");
-        require(amount > 0, "Amount must be > 0");
+    function deposit(address token, uint256 amount) external {
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        poolBalances[token] += amount;
+    }
 
-        uint256 balanceBefore = loanToken.balanceOf(address(this));
+    function withdraw(address token, uint256 amount) external {
+        require(msg.sender == owner, "Only owner");
+        require(poolBalances[token] >= amount, "Insufficient balance");
+        poolBalances[token] -= amount;
+        IERC20(token).transfer(owner, amount);
+    }
+
+    function flashLoan(address token, uint256 amount, address receiver, bytes calldata params) external {
+        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
         require(balanceBefore >= amount, "Insufficient pool balance");
 
-        // BUG: Truncates to 0 when amount < 10000/feeBPS
-        uint256 fee = amount * feeBPS / 10000;
+        // Enforce minimum fee to prevent zero-fee flash loans
+        uint256 fee = amount * flashLoanFee / 10000;
+        if (fee == 0) {
+            fee = amount * MIN_FEE_BPS / 10000;
+        }
+        uint256 amountPlusFee = amount + fee;
+        require(amountPlusFee > amount, "Fee overflow");
 
-        loanToken.transfer(msg.sender, amount);
+        IERC20(token).transfer(receiver, amount);
 
-        IFlashLoanReceiver(msg.sender).onFlashLoan(address(loanToken), amount, fee, data);
+        require(
+            IFlashLoanReceiver(receiver).executeOperation(token, amount, fee, params),
+            "Flash loan failed"
+        );
 
-        // BUG: balanceOf can be manipulated by rebasing tokens
-        uint256 balanceAfter = loanToken.balanceOf(address(this));
-        require(balanceAfter >= balanceBefore + fee, "Loan not repaid");
+        uint256 balanceAfter = IERC20(token).balanceOf(address(this));
+        require(balanceAfter >= balanceBefore + fee, "Flash loan not repaid with fee");
 
-        totalFees += fee;
-        emit FlashLoanExecuted(msg.sender, amount, fee);
+        emit FlashLoanExecuted(msg.sender, token, amount, fee);
     }
 
-    function depositToPool(uint256 amount) external {
-        loanToken.transferFrom(msg.sender, address(this), amount);
-    }
-
-    function withdrawFees() external {
-        require(msg.sender == owner, "Not owner");
-        uint256 fees = totalFees;
-        totalFees = 0;
-        loanToken.transfer(owner, fees);
-    }
-
-    // BUG: No emergency pause function
-    function getPoolBalance() external view returns (uint256) {
-        return loanToken.balanceOf(address(this));
-    }
+    receive() external payable {}
 }
