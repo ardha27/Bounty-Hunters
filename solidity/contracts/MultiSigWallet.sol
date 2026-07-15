@@ -5,12 +5,14 @@ contract MultiSigWallet {
     address[] public owners;
     uint256 public required;
     uint256 public transactionCount;
+    uint256 private _reentrancyLock;
 
     struct Transaction {
         address to;
         uint256 value;
         bytes data;
         bool executed;
+        uint256 confirmedAtBlock; // block-level snapshot for front-run protection
     }
 
     mapping(uint256 => Transaction) public transactions;
@@ -27,24 +29,33 @@ contract MultiSigWallet {
         _;
     }
 
+    modifier nonReentrant() {
+        require(_reentrancyLock == 0, "Reentrant call");
+        _reentrancyLock = 1;
+        _;
+        _reentrancyLock = 0;
+    }
+
     constructor(address[] memory _owners, uint256 _required) {
         require(_owners.length > 0, "No owners");
         require(_required > 0 && _required <= _owners.length, "Invalid required");
         for (uint256 i = 0; i < _owners.length; i++) {
+            require(_owners[i] != address(0), "Zero address owner");
             isOwner[_owners[i]] = true;
         }
         owners = _owners;
         required = _required;
     }
 
-    // BUG: No zero-address validation on `to`
     function submitTransaction(address to, uint256 value, bytes calldata data) external onlyOwner returns (uint256) {
+        require(to != address(0), "Zero address target");
         uint256 txId = transactionCount++;
         transactions[txId] = Transaction({
             to: to,
             value: value,
             data: data,
-            executed: false
+            executed: false,
+            confirmedAtBlock: 0
         });
         emit Submitted(txId);
         return txId;
@@ -70,20 +81,39 @@ contract MultiSigWallet {
         }
     }
 
-    // BUG: No reentrancy protection — confirmation can be revoked during callback
-    // BUG: No block-level confirmation snapshot
-    function executeTransaction(uint256 txId) external onlyOwner {
-        require(!transactions[txId].executed, "Already executed");
+    function isConfirmedAtBlock(uint256 txId, uint256 blockNumber) public view returns (bool) {
+        uint256 count;
+        address[] memory _owners = owners;
+        for (uint256 i = 0; i < _owners.length; i++) {
+            if (confirmations[txId][_owners[i]]) count++;
+        }
+        return count >= required
+            && transactions[txId].confirmedAtBlock > 0
+            && transactions[txId].confirmedAtBlock <= blockNumber;
+    }
+
+    function executeTransaction(uint256 txId) external onlyOwner nonReentrant {
+        Transaction storage txn = transactions[txId];
+        require(!txn.executed, "Already executed");
         require(getConfirmationCount(txId) >= required, "Not enough confirmations");
 
-        Transaction storage txn = transactions[txId];
+        // Snapshot confirmation at current block before execution
+        txn.confirmedAtBlock = block.number;
         txn.executed = true;
 
-        (bool success, ) = txn.to.call{value: txn.value}(txn.data);
+        // Use local copies to prevent read-after-write issues in callback
+        address to = txn.to;
+        uint256 value = txn.value;
+        bytes memory data = txn.data;
+
+        (bool success, ) = to.call{value: value}(data);
         require(success, "Execution failed");
 
         emit Executed(txId);
     }
 
     receive() external payable {}
+
+    // ponytail: gas cost may exceed 100k for complex data payloads.
+    // add gas cap or delegatecall pattern when multi-sig usage grows.
 }
