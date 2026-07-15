@@ -327,6 +327,74 @@ class OAuth2PasswordRequestFormStrict(OAuth2PasswordRequestForm):
         )
 
 
+
+class OAuth2RefreshRequestForm:
+    """
+    This is a dependency class to collect the `refresh_token` and `grant_type`
+    for an OAuth2 token refresh flow.
+
+    Read more about it in the
+    [FastAPI docs for OAuth2](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/).
+    """
+
+    def __init__(
+        self,
+        *,
+        grant_type: Annotated[
+            str,
+            Form(pattern="^refresh_token$"),
+            Doc(
+                """
+                The OAuth2 spec requires it to be the fixed string
+                "refresh_token" for the refresh flow.
+                """
+            ),
+        ],
+        refresh_token: Annotated[
+            str,
+            Form(),
+            Doc(
+                """
+                The refresh token obtained during the initial authentication.
+                """
+            ),
+        ],
+        scope: Annotated[
+            str,
+            Form(default=""),
+            Doc(
+                """
+                A space-separated list of scope strings. The OAuth2 spec requires
+                the field to be named `scope`.
+                """
+            ),
+        ] = "",
+        client_id: Annotated[
+            str | None,
+            Form(),
+            Doc(
+                """
+                The optional client_id, needed for confidential clients.
+                """
+            ),
+        ] = None,
+        client_secret: Annotated[
+            str | None,
+            Form(),
+            Doc(
+                """
+                The optional client_secret, needed for confidential clients.
+                """
+            ),
+        ] = None,
+    ):
+        self.grant_type = grant_type
+        self.refresh_token = refresh_token
+        self.scopes = scope.split()
+        self.client_id = client_id
+        self.client_secret = client_secret
+
+
 class OAuth2(SecurityBase):
     """
     This is the base class for OAuth2 authentication, an instance of it would be used
@@ -542,6 +610,100 @@ class OAuth2PasswordBearer(OAuth2):
             else:
                 return None
         return param
+
+
+
+class OAuth2PasswordBearerWithRefresh(OAuth2PasswordBearer):
+    """
+    OAuth2 flow for authentication using a bearer token with refresh support.
+    Extends OAuth2PasswordBearer to add a refresh_url that appears in the
+    OpenAPI schema.
+    """
+
+    def __init__(
+        self,
+        token_url: Annotated[
+            str,
+            Doc(
+                """
+                The URL to obtain the OAuth2 token.
+                """
+            ),
+        ],
+        refresh_url: Annotated[
+            str | None,
+            Doc(
+                """
+                The URL to refresh the OAuth2 token. When provided, it appears
+                in the OpenAPI schema under the OAuth2 security scheme.
+                """
+            ),
+        ] = None,
+        scheme_name: Annotated[
+            str | None,
+            Doc(
+                """
+                Security scheme name. Overrides the auto-generated name.
+                """
+            ),
+        ] = None,
+        scopes: Annotated[
+            dict[str, str] | None,
+            Doc(
+                """
+                A dict of OAuth2 scopes.
+                """
+            ),
+        ] = None,
+        description: Annotated[
+            str | None,
+            Doc(
+                """
+                Security scheme description.
+                """
+            ),
+        ] = None,
+        auto_error: Annotated[
+            bool,
+            Doc(
+                """
+                By default, if no HTTP Authorization header is provided, will
+                automatically cancel the request and send the client an error.
+                If `auto_error` is set to `False`, when the HTTP Authorization
+                header is not available, instead of erroring, the result will be
+                `None`.
+                """
+            ),
+        ] = True,
+    ):
+        if not isinstance(token_url, str):
+            raise TypeError(f"token_url must be str but got {type(token_url)}")
+        if refresh_url is not None and not isinstance(refresh_url, str):
+            raise TypeError(f"refresh_url must be str or None but got {type(refresh_url)}")
+        if scheme_name is not None and not isinstance(scheme_name, str):
+            raise TypeError(f"scheme_name must be str or None but got {type(scheme_name)}")
+        if scopes is not None and not isinstance(scopes, dict):
+            raise TypeError(f"scopes must be dict or None but got {type(scopes)}")
+        if description is not None and not isinstance(description, str):
+            raise TypeError(f"description must be str or None but got {type(description)}")
+        if not isinstance(auto_error, bool):
+            raise TypeError(f"auto_error must be bool but got {type(auto_error)}")
+
+        self.refresh_url = refresh_url
+        if not scopes:
+            scopes = {}
+        super(OAuth2PasswordBearer, self).__init__(
+            flows=OAuthFlowsModel(
+                password={
+                    "tokenUrl": token_url,
+                    "refreshUrl": refresh_url,
+                    "scopes": scopes,
+                }
+            ),
+            scheme_name=scheme_name,
+            description=description,
+            auto_error=auto_error,
+        )
 
 
 class OAuth2AuthorizationCodeBearer(OAuth2):
