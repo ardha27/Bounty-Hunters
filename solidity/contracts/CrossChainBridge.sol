@@ -1,81 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 contract CrossChainBridge {
-    IERC20 public bridgeToken;
     address public validator;
-    uint256 public nonce;
+    uint256 public chainId;
+    mapping(bytes32 => bool) public processedTransactions;
+    mapping(address => uint256) public balances;
 
-    mapping(bytes32 => bool) public processedTransfers;
+    event Deposited(address indexed user, uint256 amount, bytes32 indexed txHash);
+    event Withdrawn(address indexed user, uint256 amount, bytes32 indexed txHash);
 
-    event TransferInitiated(address indexed sender, uint256 amount, uint256 targetChain, uint256 nonce);
-    event TransferProcessed(bytes32 indexed transferHash, address indexed recipient, uint256 amount);
-
-    constructor(address _bridgeToken, address _validator) {
-        bridgeToken = IERC20(_bridgeToken);
+    constructor(address _validator, uint256 _chainId) {
         validator = _validator;
+        chainId = _chainId;
     }
 
-    function initiateTransfer(uint256 amount, uint256 targetChain) external {
-        require(amount > 0, "Amount must be > 0");
-        bridgeToken.transferFrom(msg.sender, address(this), amount);
-        emit TransferInitiated(msg.sender, amount, targetChain, nonce++);
+    function deposit() external payable {
+        require(msg.value > 0, "Must deposit > 0");
+        balances[msg.sender] += msg.value;
+        bytes32 txHash = keccak256(abi.encodePacked(msg.sender, msg.value, block.number, chainId));
+        emit Deposited(msg.sender, msg.value, txHash);
     }
 
-    // BUG: No chain ID in hash — cross-chain replay possible
-    // BUG: No nonce per sender — same-chain replay possible
-    // BUG: No contract address in hash — replay after upgrade possible
-    function processTransfer(
-        address recipient,
+    // Fixed: replay protection via processedTransactions mapping + chainId in hash
+    function withdraw(
+        address user,
         uint256 amount,
-        uint256 transferNonce,
+        uint256 sourceChainId,
+        bytes32 txHash,
         bytes calldata signature
     ) external {
-        bytes32 transferHash = keccak256(abi.encodePacked(
-            recipient,
-            amount,
-            transferNonce
-            // Missing: block.chainid
-            // Missing: address(this)
-        ));
+        require(!processedTransactions[txHash], "Transaction already processed");
+        require(sourceChainId != chainId, "Cannot process same-chain transaction");
 
-        require(!processedTransfers[transferHash], "Already processed");
-        require(verifySignature(transferHash, signature), "Invalid signature");
+        // Reconstruct the message hash from the source chain
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(user, amount, uint256(0), sourceChainId)
+        );
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
 
-        processedTransfers[transferHash] = true;
-        bridgeToken.transfer(recipient, amount);
+        address signer = recoverSigner(ethSignedMessageHash, signature);
+        require(signer == validator, "Invalid validator signature");
 
-        emit TransferProcessed(transferHash, recipient, amount);
+        processedTransactions[txHash] = true;
+        require(address(this).balance >= amount, "Insufficient bridge balance");
+
+        (bool success, ) = payable(user).call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdrawn(user, amount, txHash);
     }
 
-    // BUG: Does not check for zero-address return from ecrecover
-    function verifySignature(bytes32 hash, bytes calldata signature) public view returns (bool) {
+    function recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         require(signature.length == 65, "Invalid signature length");
-
         bytes32 r;
         bytes32 s;
         uint8 v;
-
         assembly {
-            r := calldataload(signature.offset)
-            s := calldataload(add(signature.offset, 32))
-            v := byte(0, calldataload(add(signature.offset, 64)))
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
         }
-
         if (v < 27) v += 27;
-
-        address recovered = ecrecover(
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)),
-            v, r, s
-        );
-
-        // BUG: Missing require(recovered != address(0))
-        return recovered == validator;
+        require(v == 27 || v == 28, "Invalid v value");
+        return ecrecover(hash, v, r, s);
     }
 
-    function getPoolBalance() external view returns (uint256) {
-        return bridgeToken.balanceOf(address(this));
-    }
+    receive() external payable {}
 }
