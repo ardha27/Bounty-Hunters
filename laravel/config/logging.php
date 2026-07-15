@@ -127,6 +127,14 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'failed_jobs' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/failed_jobs.log'),
+            'level' => 'warning',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
